@@ -1,0 +1,6 @@
+<h1 id="tag">Articles about project <%= project[:title] %></h1> 
+<p> <%= project[:description]%> </p>
+
+<% for entry in archives %> 
+  <li class="entry"><%= entry.title %></li> 
+<% end %>

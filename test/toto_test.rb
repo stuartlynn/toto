@@ -1,4 +1,4 @@
-require 'test/test_helper'
+require './test/test_helper'
 require 'date'
 
 URL = "http://toto.oz"
@@ -11,6 +11,8 @@ context Toto do
     Toto::Paths[:articles] = "test/articles"
     Toto::Paths[:pages] = "test/templates"
     Toto::Paths[:templates] = "test/templates"
+    Toto::Paths[:projects] = "test/projects"
+
   end
 
   context "GET /" do
@@ -59,6 +61,22 @@ context Toto do
     asserts("returns a 200")                { topic.status }.equals 200
     asserts("content type is set properly") { topic.content_type }.equals "text/html"
     should("contain the article")           { topic.body }.includes_html("p" => /<em>Once upon a time<\/em>/)
+  end
+
+  context "GET a tag page" do 
+    setup { @toto.get('/tags/the-wizard-of-oz') }
+    asserts("returns a 200")                         { topic.status }.equals 200 
+    asserts("body is not empty")                     { not topic.body.empty? }
+    should("includes only the entries for that tag") { topic.body }.includes_elements("li.entry", 1)
+    should("has access to @tag")                     { topic.body }.includes_html("#tag" => /The Wizard of Oz/)
+  end
+
+  context "GET a project page" do 
+    setup { @toto.get('/projects/the-wizard-of-oz') }
+    asserts("returns a 200")                         { topic.status }.equals 200 
+    asserts("body is not empty")                     { not topic.body.empty? }
+    should("includes only the entries for that tag") { topic.body }.includes_elements("li.entry", 1)
+    should("has access to @tag")                     { topic.body }.includes_html("#tag" => /The Wizard of Oz/)
   end
 
   context "GET to the archive" do

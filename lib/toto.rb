@@ -5,6 +5,7 @@ require 'rack'
 require 'digest'
 require 'open-uri'
 
+
 if RUBY_PLATFORM =~ /win32/
   require 'maruku'
   Markdown = Maruku
@@ -22,7 +23,8 @@ module Toto
   Paths = {
     :templates => "templates",
     :pages => "templates/pages",
-    :articles => "articles"
+    :articles => "articles",
+    :projects => "projects"
   }
 
   def self.env
@@ -78,7 +80,7 @@ module Toto
       end}.merge archives
     end
 
-    def archives filter = ""
+    def archives filter = "", tag = nil,  project = nil
       entries = ! self.articles.empty??
         self.articles.select do |a|
           filter !~ /^\d{4}/ || File.basename(a) =~ /^#{filter}/
@@ -86,7 +88,22 @@ module Toto
           Article.new article, @config
         end : []
 
-      return :archives => Archives.new(entries, @config)
+        if tag.nil? and project.nil?
+          {:archives => Archives.new(entries, @config)}
+        elsif tag
+          tagged = entries.select do |article|
+            article_tag = article[:tag]
+            article_tag && article_tag.slugize == tag
+          end
+          {:tag => tagged.first[:tag], :archives => tagged } if tagged.size >0
+        elsif project
+          project_posts = entries.select do |article|
+            project_name = article[:project]
+            project_name && project_name.slugize == project
+          end
+          
+          {:project => project_posts.first[:project], :archives => project_posts } if project_posts.size >0
+        end
     end
 
     def article route
@@ -113,6 +130,22 @@ module Toto
               context[article(route), :article]
             else http 400
           end
+
+        elsif route.first == 'tags' && route.size ==2
+          if (data=archives('',route[1])).nil?
+            http 404
+          else
+            context[data, :tag]
+          end
+
+        elsif route.first == 'projects' && route.size ==2
+
+          if (data=archives('',nil,route[1])).nil?
+            http 404
+          else
+            context[data, :project]
+          end
+
         elsif respond_to?(path)
           context[send(path, type), path.to_sym]
         elsif (repo = @config[:github][:repos].grep(/#{path}/).first) &&
@@ -141,6 +174,10 @@ module Toto
       self.class.articles self[:ext]
     end
 
+    def self.projects ext
+      Dir["#{Paths[:projects]}/*.txt"].sort_by{|entry| File.basename(entry)}
+    end
+
     def self.articles ext
       Dir["#{Paths[:articles]}/*.#{ext}"].sort_by {|entry| File.basename(entry) }
     end
@@ -155,6 +192,12 @@ module Toto
           Article.new(a, @config)
         end
 
+        @projects = Site.projects(@config[:ext]).reverse.map do |a|
+          Project.new(a, @config)
+        end
+
+        ctx[:project] = @projects.select{|p| p.title== ctx[:project]}.first if ctx[:project]
+        
         ctx.each do |k, v|
           meta_def(k) { ctx.instance_of?(Hash) ? v : ctx.send(k) }
         end
@@ -218,12 +261,48 @@ module Toto
     alias :archive archives
   end
 
+  class Project <Hash
+    include Template
+
+    def initialize obj, config = {}
+      
+      @obj, @config = obj, config
+      self.load 
+    end
+
+    def load
+      data = if @obj.is_a? String
+        meta, self[:body] = File.read(@obj).split(/\n\n/, 2)
+
+        # use the date from the filename, or else toto won't find the article
+        @obj =~ /\/(\d{4}-\d{2}-\d{2})[^\/]*$/
+        {}.merge(YAML.load(meta))
+      elsif @obj.is_a? Hash
+        @obj
+      end.inject({}) {|h, (k,v)| h.merge(k.to_sym => v) }
+      
+      self.taint
+      self.update data
+      self
+    end
+
+    def title()   self[:title] || "a project"                end
+    def description()     self[:description]                 end
+    def status()  self[:status] || "unknown"                 end
+
+  end
+
   class Article < Hash
     include Template
 
     def initialize obj, config = {}
       @obj, @config = obj, config
       self.load if obj.is_a? Hash
+    end
+
+    def [] key
+      self.load unless self.tainted?
+      super
     end
 
     def load
