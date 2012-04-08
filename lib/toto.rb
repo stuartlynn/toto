@@ -24,7 +24,7 @@ module Toto
     :templates => "templates",
     :pages => "templates/pages",
     :articles => "articles",
-    :projects => "projects"
+    :projects => "templates/projects"
   }
 
   def self.env
