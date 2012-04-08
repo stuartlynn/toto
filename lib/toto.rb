@@ -97,12 +97,13 @@ module Toto
           end
           {:tag => tagged.first[:tag], :archives => tagged } if tagged.size >0
         elsif project
+
           project_posts = entries.select do |article|
             project_name = article[:project]
             project_name && project_name.slugize == project
           end
-          
-          {:project => project_posts.first[:project], :archives => project_posts } if project_posts.size >0
+
+          {:project => project, :archives => project_posts } 
         end
     end
 
@@ -196,7 +197,7 @@ module Toto
           Project.new(a, @config)
         end
 
-        ctx[:project] = @projects.select{|p| p.title== ctx[:project]}.first if ctx[:project]
+        ctx[:project] = @projects.select{|p| p.title.downcase == ctx[:project].downcase}.first if ctx[:project]
         
         ctx.each do |k, v|
           meta_def(k) { ctx.instance_of?(Hash) ? v : ctx.send(k) }

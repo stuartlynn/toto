@@ -12,7 +12,6 @@ context Toto do
     Toto::Paths[:pages] = "test/templates"
     Toto::Paths[:templates] = "test/templates"
     Toto::Paths[:projects] = "test/projects"
-
   end
 
   context "GET /" do
